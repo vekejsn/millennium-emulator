@@ -235,6 +235,9 @@ type LoadResponse struct {
 		Map         *string `json:"map"`
 		Association string  `json:"association"`
 	} `json:"symbols"`
+	// Warning is set for an image that loads but cannot boot, e.g. an MTR2
+	// flash with an empty reset sector (a bare U2 half without the X1 bootstrap).
+	Warning string `json:"warning,omitempty"`
 }
 
 // Load installs a firmware image given by absolute path. Sidecar files next
@@ -304,6 +307,11 @@ func (a *App) Load(name any, mapPath any, board any) (*LoadResponse, error) {
 	a.realtime.ClockHz = a.Machine.Board.ClockHz
 	resp := &LoadResponse{ResultData: a.Result()}
 	resp.ProfileSource = profileSource
+	if a.Machine.BootSectorEmpty() {
+		resp.Warning = "MTR2 image has an empty boot sector at flash 0xC0000: the CPU " +
+			"fetches 0xFF from reset and runs away into RST 0x38. Load the full 1 MB flash " +
+			"(both chips concatenated, e.g. U2+X1), not a single 512 KiB half."
+	}
 	resp.Symbols.Count = len(symbols)
 	resp.Symbols.Map = mapName
 	resp.Symbols.Association = "Companion map; verify it matches this ROM build"

@@ -393,6 +393,22 @@ func (m *Machine) Load(data []byte, filename string, symbols []Symbol, board str
 	return nil
 }
 
+// BootSectorEmpty reports whether an MTR2 flash image lacks a reset vector in
+// the sector the CPU fetches from at power-on. At reset, port 0xC0 selects flash
+// sector 0xC0000 (the bootstrap, which lives in the upper flash chip). A bare
+// 512 KiB half — e.g. only the U2 application without the X1 bootstrap — leaves
+// that sector erased, so the CPU fetches 0xFF and runs away into RST 0x38.
+// Always false on MTR1, where the ROM is mapped directly.
+func (m *Machine) BootSectorEmpty() bool {
+	const resetSector = 0xC0000
+	if !m.IsMTR2 || len(m.Flash) < resetSector+3 {
+		return false
+	}
+	return m.Flash[resetSector] == 0xFF &&
+		m.Flash[resetSector+1] == 0xFF &&
+		m.Flash[resetSector+2] == 0xFF
+}
+
 // Physical applies Z180 MMU translation (CBAR/BBR/CBR) using cached decode.
 func (m *Machine) Physical(address int) int {
 	address &= 65535
